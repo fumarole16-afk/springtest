@@ -174,7 +174,7 @@ services:
     ports: ["8080:8080"]
     environment: DB 접속정보, API 키
     volumes: 로그 저장
-    memory: 512m
+    memory: 1024m
 
   postgres:
     image: postgres:15
@@ -196,7 +196,7 @@ services:
 
 ### 운영 고려사항
 
-- JVM 메모리 제한: `-Xmx512m` (Synology 리소스 한계)
+- JVM 메모리 제한: `-Xmx1g` (Synology 리소스 한계)
 - 무료 API rate limiting 처리
 - DB 백업: pg_dump 크론 스케줄
 

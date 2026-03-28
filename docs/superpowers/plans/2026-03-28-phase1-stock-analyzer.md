@@ -2073,7 +2073,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 1024M
     restart: unless-stopped
 
 volumes:
@@ -2523,6 +2523,23 @@ export default function PriceChart({ prices }: Props) {
     }));
 
     candleSeries.setData(data);
+
+    const volumeSeries = chart.addHistogramSeries({
+      color: '#475569',
+      priceFormat: { type: 'volume' },
+      priceScaleId: 'volume',
+    });
+    chart.priceScale('volume').applyOptions({
+      scaleMargins: { top: 0.8, bottom: 0 },
+    });
+    volumeSeries.setData(
+      prices.map((p) => ({
+        time: p.date as unknown as Time,
+        value: p.volume,
+        color: p.close >= p.open ? '#22c55e40' : '#ef444440',
+      }))
+    );
+
     chart.timeScale().fitContent();
     chartRef.current = chart;
 
