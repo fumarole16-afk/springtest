@@ -169,3 +169,73 @@ export async function getIndustryDetail(id: number): Promise<IndustryDetail> {
   const res = await api.get<ApiResponse<IndustryDetail>>(`/industries/${id}`);
   return res.data.data;
 }
+
+export interface NewsItem {
+  title: string;
+  source: string;
+  url: string;
+  publishedAt: string;
+  summary: string;
+  imageUrl: string;
+}
+
+export interface CompareData {
+  stocks: StockDetail[];
+  prices: Record<string, PriceData[]>;
+  financials: Record<string, FinancialData[]>;
+}
+
+export interface IndexQuote {
+  symbol: string;
+  name: string;
+  price: number;
+  change: number;
+  changePercent: number;
+}
+
+export interface MoverStock {
+  ticker: string;
+  companyName: string;
+  price: number;
+  changePercent: number;
+}
+
+export async function getNews(page = 0, size = 20): Promise<NewsItem[]> {
+  const res = await api.get<ApiResponse<NewsItem[]>>('/news', { params: { page, size } });
+  return res.data.data;
+}
+
+export async function getStockNews(ticker: string, page = 0, size = 10): Promise<NewsItem[]> {
+  const res = await api.get<ApiResponse<NewsItem[]>>(`/stocks/${ticker}/news`, { params: { page, size } });
+  return res.data.data;
+}
+
+export async function getFilings(ticker: string): Promise<NewsItem[]> {
+  const res = await api.get<ApiResponse<NewsItem[]>>('/news/filings', { params: { ticker } });
+  return res.data.data;
+}
+
+export async function compareStocks(tickers: string[], period = '1m'): Promise<CompareData> {
+  const res = await api.get<ApiResponse<CompareData>>('/compare', { params: { tickers: tickers.join(','), period } });
+  return res.data.data;
+}
+
+export async function getDashboardIndices(): Promise<IndexQuote[]> {
+  const res = await api.get<ApiResponse<IndexQuote[]>>('/dashboard/indices');
+  return res.data.data;
+}
+
+export async function getDashboardMovers(): Promise<{gainers: MoverStock[], losers: MoverStock[]}> {
+  const res = await api.get<ApiResponse<{gainers: MoverStock[], losers: MoverStock[]}>>('/dashboard/movers');
+  return res.data.data;
+}
+
+export async function getDashboardExtremes(): Promise<{highs: MoverStock[], lows: MoverStock[]}> {
+  const res = await api.get<ApiResponse<{highs: MoverStock[], lows: MoverStock[]}>>('/dashboard/extremes');
+  return res.data.data;
+}
+
+export async function getDashboardVolumeSpikes(): Promise<MoverStock[]> {
+  const res = await api.get<ApiResponse<MoverStock[]>>('/dashboard/volume-spikes');
+  return res.data.data;
+}

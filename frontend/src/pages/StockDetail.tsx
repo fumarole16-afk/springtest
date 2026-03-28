@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { getStockDetail, getStockPrices, getFinancials, getFinancialRatios } from '../api/stockApi';
-import type { StockDetail as StockDetailType, PriceData, FinancialData, FinancialRatios } from '../api/stockApi';
+import { getStockDetail, getStockPrices, getFinancials, getFinancialRatios, getStockNews } from '../api/stockApi';
+import type { StockDetail as StockDetailType, PriceData, FinancialData, FinancialRatios, NewsItem } from '../api/stockApi';
 import PriceChart from '../components/PriceChart';
 import FinancialTable from '../components/FinancialTable';
 import RatioComparison from '../components/RatioComparison';
+import NewsFeed from '../components/NewsFeed';
 
 const PERIODS = [
   { label: '1개월', value: '1m' },
@@ -21,6 +22,7 @@ export default function StockDetail() {
   const [loading, setLoading] = useState(true);
   const [financials, setFinancials] = useState<FinancialData[]>([]);
   const [ratios, setRatios] = useState<FinancialRatios | null>(null);
+  const [stockNews, setStockNews] = useState<NewsItem[]>([]);
 
   useEffect(() => {
     if (!ticker) return;
@@ -29,6 +31,7 @@ export default function StockDetail() {
       .then(([d, p]) => { setDetail(d); setPrices(p); setLoading(false); });
     getFinancials(ticker).then(setFinancials).catch(() => setFinancials([]));
     getFinancialRatios(ticker).then(setRatios).catch(() => setRatios(null));
+    getStockNews(ticker).then(setStockNews).catch(() => setStockNews([]));
   }, [ticker, period]);
 
   if (loading) return <div className="text-slate-400">로딩 중...</div>;
@@ -84,6 +87,11 @@ export default function StockDetail() {
         <h3 className="text-lg font-semibold mb-3">재무 정보</h3>
         <FinancialTable financials={financials} />
         {ratios && <RatioComparison ratios={ratios} />}
+      </div>
+
+      <div className="mt-6">
+        <h3 className="text-lg font-semibold mb-3">뉴스</h3>
+        <NewsFeed news={stockNews} />
       </div>
     </div>
   );
