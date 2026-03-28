@@ -49,10 +49,10 @@ public class PriceCollector {
         for (String ticker : INITIAL_TICKERS) {
             try {
                 collectForTicker(ticker);
-                Thread.sleep(1200);
             } catch (Exception e) {
                 log.error("Failed to collect data for {}: {}", ticker, e.getMessage());
             }
+            try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
         }
         log.info("Daily price collection completed");
     }

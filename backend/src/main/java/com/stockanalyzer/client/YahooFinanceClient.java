@@ -17,6 +17,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -35,16 +39,24 @@ public class YahooFinanceClient {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
+    private String fetchWithHeaders(String url) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36");
+        headers.set("Accept", "application/json");
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+        return restTemplate.exchange(url, HttpMethod.GET, entity, String.class).getBody();
+    }
+
     public StockDetail fetchQuote(String ticker) {
         String url = baseUrl + "/v7/finance/quote?symbols=" + ticker;
-        String json = restTemplate.getForObject(url, String.class);
+        String json = fetchWithHeaders(url);
         return parseQuoteResponse(json);
     }
 
     public JsonNode fetchFinancials(String ticker) {
         String url = baseUrl + "/v10/finance/quoteSummary/" + ticker +
                 "?modules=incomeStatementHistory,balanceSheetHistory,cashflowStatementHistory";
-        String json = restTemplate.getForObject(url, String.class);
+        String json = fetchWithHeaders(url);
         try {
             return readTreeExact(json);
         } catch (Exception e) {
@@ -55,13 +67,13 @@ public class YahooFinanceClient {
     public List<PriceData> fetchPriceHistory(String ticker, String range, String interval) {
         String url = baseUrl + "/v8/finance/chart/" + ticker +
                 "?range=" + range + "&interval=" + interval;
-        String json = restTemplate.getForObject(url, String.class);
+        String json = fetchWithHeaders(url);
         return parseChartResponse(json);
     }
 
     public IndexQuote fetchIndexQuote(String symbol, String displayName) {
         String url = baseUrl + "/v7/finance/quote?symbols=" + symbol;
-        String json = restTemplate.getForObject(url, String.class);
+        String json = fetchWithHeaders(url);
         return parseIndexQuoteResponse(json, symbol, displayName);
     }
 
