@@ -1,0 +1,148 @@
+package com.stockanalyzer.client;
+
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.DecimalNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.stockanalyzer.dto.PriceData;
+import com.stockanalyzer.dto.StockDetail;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.List;
+
+@Component
+public class YahooFinanceClient {
+
+    private static final Logger log = LoggerFactory.getLogger(YahooFinanceClient.class);
+    private static final ObjectMapper mapper = new ObjectMapper();
+
+    @Value("${yahoo.finance.base-url:https://query1.finance.yahoo.com}")
+    private String baseUrl;
+
+    private final RestTemplate restTemplate = new RestTemplate();
+
+    public StockDetail fetchQuote(String ticker) {
+        String url = baseUrl + "/v7/finance/quote?symbols=" + ticker;
+        String json = restTemplate.getForObject(url, String.class);
+        return parseQuoteResponse(json);
+    }
+
+    public List<PriceData> fetchPriceHistory(String ticker, String range, String interval) {
+        String url = baseUrl + "/v8/finance/chart/" + ticker +
+                "?range=" + range + "&interval=" + interval;
+        String json = restTemplate.getForObject(url, String.class);
+        return parseChartResponse(json);
+    }
+
+    static StockDetail parseQuoteResponse(String json) {
+        try {
+            JsonNode root = readTreeExact(json);
+            JsonNode result = root.path("quoteResponse").path("result").get(0);
+            StockDetail detail = new StockDetail();
+            detail.setTicker(result.path("symbol").asText());
+            detail.setCompanyName(result.path("shortName").asText());
+            detail.setExchange(result.path("fullExchangeName").asText());
+            detail.setMarketCap(nodeToDecimal(result.path("marketCap")));
+            detail.setCurrentPrice(nodeToDecimal(result.path("regularMarketPrice")));
+            if (result.has("trailingPE") && !result.path("trailingPE").isNull()) {
+                detail.setTrailingPE(nodeToDecimal(result.path("trailingPE")));
+            }
+            return detail;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse Yahoo Finance quote response", e);
+        }
+    }
+
+    static List<PriceData> parseChartResponse(String json) {
+        try {
+            JsonNode root = readTreeExact(json);
+            JsonNode result = root.path("chart").path("result").get(0);
+            JsonNode timestamps = result.path("timestamp");
+            JsonNode quote = result.path("indicators").path("quote").get(0);
+            JsonNode adjClose = result.path("indicators").path("adjclose").get(0).path("adjclose");
+
+            List<PriceData> prices = new ArrayList<>();
+            for (int i = 0; i < timestamps.size(); i++) {
+                long ts = timestamps.get(i).asLong();
+                LocalDate date = Instant.ofEpochSecond(ts)
+                        .atZone(ZoneId.of("America/New_York")).toLocalDate();
+                PriceData pd = new PriceData();
+                pd.setDate(date);
+                pd.setOpen(nodeToDecimal(quote.path("open").get(i)));
+                pd.setHigh(nodeToDecimal(quote.path("high").get(i)));
+                pd.setLow(nodeToDecimal(quote.path("low").get(i)));
+                pd.setClose(nodeToDecimal(quote.path("close").get(i)));
+                pd.setAdjustedClose(nodeToDecimal(adjClose.get(i)));
+                pd.setVolume(quote.path("volume").get(i).asLong());
+                prices.add(pd);
+            }
+            return prices;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse Yahoo Finance chart response", e);
+        }
+    }
+
+    /**
+     * Parses JSON preserving exact decimal representation (e.g. 173.50 stays as scale-2 BigDecimal).
+     * Standard ObjectMapper normalizes floats, losing trailing zeros and using scientific notation.
+     */
+    private static JsonNode readTreeExact(String json) throws Exception {
+        JsonParser p = mapper.createParser(json);
+        p.nextToken();
+        return buildNode(p);
+    }
+
+    private static JsonNode buildNode(JsonParser p) throws Exception {
+        JsonNodeFactory f = JsonNodeFactory.instance;
+        JsonToken token = p.currentToken();
+        switch (token) {
+            case START_OBJECT: {
+                ObjectNode obj = f.objectNode();
+                while (p.nextToken() != JsonToken.END_OBJECT) {
+                    String name = p.getCurrentName();
+                    p.nextToken();
+                    obj.set(name, buildNode(p));
+                }
+                return obj;
+            }
+            case START_ARRAY: {
+                ArrayNode arr = f.arrayNode();
+                while (p.nextToken() != JsonToken.END_ARRAY) {
+                    arr.add(buildNode(p));
+                }
+                return arr;
+            }
+            case VALUE_NUMBER_FLOAT:
+                return new DecimalNode(new BigDecimal(p.getText()));
+            case VALUE_NUMBER_INT:
+                return f.numberNode(p.getLongValue());
+            case VALUE_STRING:
+                return f.textNode(p.getText());
+            case VALUE_TRUE:
+                return f.booleanNode(true);
+            case VALUE_FALSE:
+                return f.booleanNode(false);
+            default:
+                return f.nullNode();
+        }
+    }
+
+    private static BigDecimal nodeToDecimal(JsonNode node) {
+        if (node == null || node.isNull()) return BigDecimal.ZERO;
+        if (node.isIntegralNumber()) return new BigDecimal(node.bigIntegerValue());
+        return node.decimalValue();
+    }
+}
