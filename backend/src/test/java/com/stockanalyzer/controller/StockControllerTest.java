@@ -6,6 +6,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.stockanalyzer.dto.PriceData;
 import com.stockanalyzer.dto.StockDetail;
 import com.stockanalyzer.dto.StockSearchResult;
+import com.stockanalyzer.service.FinancialService;
 import com.stockanalyzer.service.StockService;
 import org.junit.Before;
 import org.junit.Test;
@@ -28,6 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 public class StockControllerTest {
     private MockMvc mockMvc;
     @Mock private StockService stockService;
+    @Mock private FinancialService financialService;
     @InjectMocks private StockController stockController;
 
     @Before
