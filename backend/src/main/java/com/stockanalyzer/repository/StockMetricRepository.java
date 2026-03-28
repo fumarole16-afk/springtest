@@ -56,6 +56,26 @@ public class StockMetricRepository {
         return results.isEmpty() || results.get(0) == null ? LocalDate.now() : results.get(0);
     }
 
+    public List<StockMetric> findLatestWithAvgVolume() {
+        LocalDate latestDate = getLatestDate();
+        return em.createQuery(
+                "SELECT sm FROM StockMetric sm JOIN FETCH sm.stock " +
+                "WHERE sm.date = :date AND sm.avgVolume30d IS NOT NULL AND sm.avgVolume30d > 0",
+                StockMetric.class)
+                .setParameter("date", latestDate)
+                .getResultList();
+    }
+
+    public List<StockMetric> findLatestWithExtremes() {
+        LocalDate latestDate = getLatestDate();
+        return em.createQuery(
+                "SELECT sm FROM StockMetric sm JOIN FETCH sm.stock " +
+                "WHERE sm.date = :date AND sm.week52High IS NOT NULL AND sm.week52Low IS NOT NULL",
+                StockMetric.class)
+                .setParameter("date", latestDate)
+                .getResultList();
+    }
+
     @Transactional
     public StockMetric save(StockMetric metric) {
         if (metric.getId() == null) { em.persist(metric); return metric; }
