@@ -38,7 +38,7 @@ public class YahooFinanceClient {
     private static final ObjectMapper mapper = new ObjectMapper();
     private static final String USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
-    @Value("${yahoo.finance.base-url:https://query1.finance.yahoo.com}")
+    @Value("${yahoo.finance.base-url:https://query2.finance.yahoo.com}")
     private String baseUrl;
 
     private final RestTemplate restTemplate = new RestTemplate();
@@ -48,25 +48,32 @@ public class YahooFinanceClient {
     private synchronized void initCrumb() {
         if (crumb != null && cookie != null) return;
         try {
+            // Step 1: Visit Yahoo Finance page to get cookies
             HttpHeaders h1 = new HttpHeaders();
             h1.set("User-Agent", USER_AGENT);
-            ResponseEntity<String> consentResp = restTemplate.exchange(
-                    "https://fc.yahoo.com/", HttpMethod.GET, new HttpEntity<>(h1), String.class);
-            List<String> cookies = consentResp.getHeaders().get("Set-Cookie");
-            if (cookies != null && !cookies.isEmpty()) {
-                cookie = cookies.get(0).split(";")[0];
+            h1.set("Accept", "text/html,application/xhtml+xml");
+            ResponseEntity<String> pageResp = restTemplate.exchange(
+                    "https://finance.yahoo.com/quote/AAPL/", HttpMethod.GET, new HttpEntity<>(h1), String.class);
+            List<String> cookies = pageResp.getHeaders().get("Set-Cookie");
+            StringBuilder cookieStr = new StringBuilder();
+            if (cookies != null) {
+                for (String c : cookies) {
+                    if (cookieStr.length() > 0) cookieStr.append("; ");
+                    cookieStr.append(c.split(";")[0]);
+                }
             }
-            if (cookie == null) cookie = "";
+            cookie = cookieStr.toString();
 
+            // Step 2: Get crumb with cookies
             HttpHeaders h2 = new HttpHeaders();
             h2.set("User-Agent", USER_AGENT);
             h2.set("Cookie", cookie);
             ResponseEntity<String> crumbResp = restTemplate.exchange(
                     "https://query2.finance.yahoo.com/v1/test/getcrumb", HttpMethod.GET, new HttpEntity<>(h2), String.class);
             crumb = crumbResp.getBody();
-            log.info("Yahoo Finance crumb obtained: {}", crumb);
+            log.info("Yahoo Finance crumb obtained successfully");
         } catch (Exception e) {
-            log.warn("Failed to obtain crumb, will try without: {}", e.getMessage());
+            log.warn("Failed to obtain crumb: {}. Falling back to query2 without crumb.", e.getMessage());
             crumb = "";
             cookie = "";
         }
