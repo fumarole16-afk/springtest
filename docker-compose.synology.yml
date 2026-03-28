@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  spring-app:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: stock-api
+    ports:
+      - "9090:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      DB_URL: jdbc:postgresql://host.docker.internal:35435/axidiary?sslmode=disable
+      DB_USERNAME: tiger
+      DB_PASSWORD: Freewalk345^
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+    restart: unless-stopped

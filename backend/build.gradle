@@ -1,6 +1,11 @@
 plugins {
     id 'java'
     id 'war'
+    id 'application'
+}
+
+application {
+    mainClass = 'com.stockanalyzer.EmbeddedTomcat'
 }
 
 group = 'com.stockanalyzer'
@@ -14,6 +19,7 @@ repositories {
 dependencies {
     implementation 'org.springframework:spring-webmvc:4.3.30.RELEASE'
     implementation 'org.springframework:spring-orm:4.3.30.RELEASE'
+    implementation 'org.springframework:spring-jdbc:4.3.30.RELEASE'
     implementation 'org.springframework:spring-context-support:4.3.30.RELEASE'
     implementation 'org.hibernate:hibernate-core:5.4.33.Final'
     implementation 'org.hibernate:hibernate-entitymanager:5.4.33.Final'
@@ -21,7 +27,9 @@ dependencies {
     implementation 'com.zaxxer:HikariCP:4.0.3'
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.13.5'
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.13.5'
-    providedCompile 'javax.servlet:javax.servlet-api:3.1.0'
+    implementation 'javax.servlet:javax.servlet-api:3.1.0'
+    implementation 'org.apache.tomcat.embed:tomcat-embed-core:9.0.89'
+    implementation 'org.apache.tomcat.embed:tomcat-embed-jasper:9.0.89'
     implementation 'org.slf4j:slf4j-api:1.7.36'
     implementation 'ch.qos.logback:logback-classic:1.2.12'
     testImplementation 'org.springframework:spring-test:4.3.30.RELEASE'
@@ -29,6 +37,13 @@ dependencies {
     testImplementation 'com.h2database:h2:1.4.200'
     testImplementation 'org.mockito:mockito-core:3.12.4'
     testImplementation 'com.jayway.jsonpath:json-path:2.7.0'
+}
+
+run {
+    workingDir = project.projectDir
+    jvmArgs '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
+            '--add-opens', 'java.base/java.lang.reflect=ALL-UNNAMED',
+            '--add-opens', 'java.base/java.util=ALL-UNNAMED'
 }
 
 test {

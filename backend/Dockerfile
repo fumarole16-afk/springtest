@@ -1,8 +1,9 @@
-FROM gradle:7.6-jdk11 AS build
+FROM gradle:8.7-jdk11 AS build
 WORKDIR /app
 COPY build.gradle settings.gradle ./
+COPY gradle/ gradle/
 COPY src/ src/
-RUN gradle build -x test --no-daemon
+RUN gradle war -x test --no-daemon
 
 FROM tomcat:9.0-jdk11
 RUN rm -rf /usr/local/tomcat/webapps/*

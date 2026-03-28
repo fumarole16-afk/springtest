@@ -17,6 +17,9 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 import javax.persistence.EntityManagerFactory;
 import javax.sql.DataSource;
 import java.util.Properties;
+import org.springframework.jdbc.datasource.init.DataSourceInitializer;
+import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
+import org.springframework.core.io.ClassPathResource;
 
 @Configuration
 @ComponentScan(basePackages = "com.stockanalyzer")
@@ -78,5 +81,16 @@ public class AppConfig {
     @Bean
     public PlatformTransactionManager transactionManager(EntityManagerFactory emf) {
         return new JpaTransactionManager(emf);
+    }
+
+    @Bean
+    public DataSourceInitializer dataSourceInitializer(DataSource dataSource) {
+        DataSourceInitializer initializer = new DataSourceInitializer();
+        initializer.setDataSource(dataSource);
+        ResourceDatabasePopulator populator = new ResourceDatabasePopulator();
+        populator.addScript(new ClassPathResource("data/sectors-industries.sql"));
+        populator.setContinueOnError(true);
+        initializer.setDatabasePopulator(populator);
+        return initializer;
     }
 }

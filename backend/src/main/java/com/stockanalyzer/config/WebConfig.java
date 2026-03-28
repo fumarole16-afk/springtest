@@ -3,6 +3,7 @@ package com.stockanalyzer.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
@@ -14,11 +15,12 @@ import java.util.List;
 
 @Configuration
 @EnableWebMvc
+@ComponentScan(basePackages = "com.stockanalyzer.controller")
 public class WebConfig extends WebMvcConfigurerAdapter {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
-                .allowedOrigins("http://localhost:5173", "https://*.vercel.app")
+                .allowedOrigins("http://localhost:5173", "https://*.vercel.app", "http://fumarole.synology.me:39091")
                 .allowedMethods("GET")
                 .maxAge(3600);
     }
