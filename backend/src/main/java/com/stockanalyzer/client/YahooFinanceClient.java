@@ -90,21 +90,29 @@ public class YahooFinanceClient {
     }
 
     public IndexQuote fetchIndexQuote(String symbol, String displayName) {
-        String url = baseUrl + "/v7/finance/quote?symbols=" + symbol;
-        String json = fetchWithHeaders(url);
-        return parseIndexQuoteResponse(json, symbol, displayName);
-    }
-
-    static IndexQuote parseIndexQuoteResponse(String json, String symbol, String displayName) {
         try {
-            JsonNode root = readTreeExact(json);
-            JsonNode result = root.path("quoteResponse").path("result").get(0);
-            BigDecimal price = nodeToDecimal(result.path("regularMarketPrice"));
-            BigDecimal change = nodeToDecimal(result.path("regularMarketChange"));
-            BigDecimal changePct = nodeToDecimal(result.path("regularMarketChangePercent"));
-            return new IndexQuote(symbol, displayName, price, change, changePct);
+            String url = baseUrl + "/v8/finance/chart/" + symbol + "?range=2d&interval=1d";
+            String json = fetchWithHeaders(url);
+            return parseIndexQuoteFromChart(json, symbol, displayName);
         } catch (Exception e) {
             log.warn("Failed to fetch index quote for {}: {}", symbol, e.getMessage());
+            return new IndexQuote(symbol, displayName, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
+        }
+    }
+
+    static IndexQuote parseIndexQuoteFromChart(String json, String symbol, String displayName) {
+        try {
+            JsonNode root = readTreeExact(json);
+            JsonNode meta = root.path("chart").path("result").get(0).path("meta");
+            BigDecimal price = nodeToDecimal(meta.path("regularMarketPrice"));
+            BigDecimal prevClose = nodeToDecimal(meta.path("chartPreviousClose"));
+            BigDecimal change = price.subtract(prevClose);
+            BigDecimal changePct = prevClose.compareTo(BigDecimal.ZERO) != 0
+                    ? change.multiply(new BigDecimal("100")).divide(prevClose, 4, BigDecimal.ROUND_HALF_UP)
+                    : BigDecimal.ZERO;
+            return new IndexQuote(symbol, displayName, price, change, changePct);
+        } catch (Exception e) {
+            log.warn("Failed to parse index chart for {}: {}", symbol, e.getMessage());
             return new IndexQuote(symbol, displayName, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
         }
     }
