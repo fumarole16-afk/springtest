@@ -82,8 +82,8 @@ export default function Screening() {
                         <td className="px-4 py-3 text-right">{r.marketCap ? formatMarketCap(r.marketCap) : '-'}</td>
                         <td className="px-4 py-3 text-right">{r.per?.toFixed(2) ?? '-'}</td>
                         <td className="px-4 py-3 text-right">{r.pbr?.toFixed(2) ?? '-'}</td>
-                        <td className="px-4 py-3 text-right">{r.roe !== undefined ? `${r.roe.toFixed(1)}%` : '-'}</td>
-                        <td className="px-4 py-3 text-right">{r.debtRatio !== undefined ? `${r.debtRatio.toFixed(1)}%` : '-'}</td>
+                        <td className="px-4 py-3 text-right">{r.roe != null ? `${r.roe.toFixed(1)}%` : '-'}</td>
+                        <td className="px-4 py-3 text-right">{r.debtRatio != null ? `${r.debtRatio.toFixed(1)}%` : '-'}</td>
                       </tr>
                     ))}
                   </tbody>
