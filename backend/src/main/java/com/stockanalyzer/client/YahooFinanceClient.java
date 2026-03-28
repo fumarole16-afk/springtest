@@ -20,6 +20,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -27,22 +28,61 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Component
 public class YahooFinanceClient {
 
     private static final Logger log = LoggerFactory.getLogger(YahooFinanceClient.class);
     private static final ObjectMapper mapper = new ObjectMapper();
+    private static final String USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
     @Value("${yahoo.finance.base-url:https://query1.finance.yahoo.com}")
     private String baseUrl;
 
     private final RestTemplate restTemplate = new RestTemplate();
+    private String crumb;
+    private String cookie;
+
+    private synchronized void initCrumb() {
+        if (crumb != null && cookie != null) return;
+        try {
+            HttpHeaders h1 = new HttpHeaders();
+            h1.set("User-Agent", USER_AGENT);
+            ResponseEntity<String> consentResp = restTemplate.exchange(
+                    "https://fc.yahoo.com/", HttpMethod.GET, new HttpEntity<>(h1), String.class);
+            List<String> cookies = consentResp.getHeaders().get("Set-Cookie");
+            if (cookies != null && !cookies.isEmpty()) {
+                cookie = cookies.get(0).split(";")[0];
+            }
+            if (cookie == null) cookie = "";
+
+            HttpHeaders h2 = new HttpHeaders();
+            h2.set("User-Agent", USER_AGENT);
+            h2.set("Cookie", cookie);
+            ResponseEntity<String> crumbResp = restTemplate.exchange(
+                    "https://query2.finance.yahoo.com/v1/test/getcrumb", HttpMethod.GET, new HttpEntity<>(h2), String.class);
+            crumb = crumbResp.getBody();
+            log.info("Yahoo Finance crumb obtained: {}", crumb);
+        } catch (Exception e) {
+            log.warn("Failed to obtain crumb, will try without: {}", e.getMessage());
+            crumb = "";
+            cookie = "";
+        }
+    }
 
     private String fetchWithHeaders(String url) {
+        initCrumb();
+        if (crumb != null && !crumb.isEmpty()) {
+            url += (url.contains("?") ? "&" : "?") + "crumb=" + crumb;
+        }
         HttpHeaders headers = new HttpHeaders();
-        headers.set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36");
+        headers.set("User-Agent", USER_AGENT);
         headers.set("Accept", "application/json");
+        if (cookie != null && !cookie.isEmpty()) {
+            headers.set("Cookie", cookie);
+        }
         HttpEntity<String> entity = new HttpEntity<>(headers);
         return restTemplate.exchange(url, HttpMethod.GET, entity, String.class).getBody();
     }
