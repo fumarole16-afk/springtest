@@ -1,0 +1,22 @@
+# Build
+backend/build/
+frontend/dist/
+frontend/node_modules/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Environment
+.env
+backend/src/main/resources/application-local.properties
+
+# Superpowers
+.superpowers/
+
+# OS
+.DS_Store
+
+# Gradle
+.gradle/
