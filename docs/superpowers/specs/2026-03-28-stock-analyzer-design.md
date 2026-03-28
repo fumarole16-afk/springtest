@@ -28,7 +28,8 @@
 | `stocks` | 종목 기본정보 | ticker, company_name, sector_id, industry_id, market_cap, exchange |
 | `daily_prices` | 일별 시세 | stock_id, date, open, high, low, close, volume, adjusted_close |
 | `financials` | 재무제표 | stock_id, period, type(연/분기), revenue, net_income, total_assets, total_debt, cash_flow 등 |
-| `news` | 뉴스/공시 | stock_id, title, source, url, published_at, summary |
+| `news` | 뉴스/공시 | title, source, url, published_at, summary |
+| `stock_news` | 종목-뉴스 조인 테이블 | stock_id, news_id |
 | `sectors` | 섹터 분류 | name, description |
 | `industries` | 산업 분류 (섹터 하위) | sector_id, name, description |
 | `sector_metrics` | 섹터별 집계 지표 | sector_id, date, avg_per, avg_pbr, total_market_cap, avg_dividend_yield, top_gainers(JSONB), top_losers(JSONB) |
@@ -152,7 +153,7 @@ com.stockanalyzer
 - JPA (Hibernate) — Entity 매핑, Repository 패턴
 - Spring Task Scheduler — `@Scheduled`로 데이터 수집 (cron 표현식)
 - RestTemplate — 외부 API 호출
-- 빌드 도구: Maven 또는 Gradle
+- 빌드 도구: Gradle
 
 ### 스케줄러 실행 주기
 
@@ -169,7 +170,7 @@ com.stockanalyzer
 # docker-compose.yml
 services:
   spring-app:
-    image: openjdk:8/11
+    image: openjdk:11
     ports: ["8080:8080"]
     environment: DB 접속정보, API 키
     volumes: 로그 저장
