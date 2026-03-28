@@ -51,3 +51,121 @@ export async function getStockPrices(ticker: string, period: string = '1m'): Pro
   const res = await api.get<ApiResponse<PriceData[]>>(`/stocks/${ticker}/prices`, { params: { period } });
   return res.data.data;
 }
+
+export interface ScreeningResult {
+  ticker: string;
+  companyName: string;
+  exchange: string;
+  marketCap: number;
+  per: number;
+  pbr: number;
+  roe: number;
+  debtRatio: number;
+  dividendYield: number;
+  revenueGrowth: number;
+  operatingMargin: number;
+}
+
+export interface ScreeningFilter {
+  sectorId?: number;
+  minPer?: number;
+  maxPer?: number;
+  minPbr?: number;
+  maxPbr?: number;
+  minCap?: number;
+  maxCap?: number;
+  minDividendYield?: number;
+  minRoe?: number;
+  maxDebtRatio?: number;
+  minRevenueGrowth?: number;
+  minOperatingMargin?: number;
+  exchange?: string;
+}
+
+export interface FinancialData {
+  period: string;
+  type: string;
+  revenue: number;
+  operatingIncome: number;
+  netIncome: number;
+  totalAssets: number;
+  totalLiabilities: number;
+  totalEquity: number;
+  operatingCashFlow: number;
+}
+
+export interface FinancialRatios {
+  stock: Record<string, number>;
+  sectorAverage: Record<string, number>;
+}
+
+export interface SectorOverview {
+  sectorId: number;
+  sectorName: string;
+  avgPer: number;
+  avgPbr: number;
+  totalMarketCap: number;
+  avgDividendYield: number;
+}
+
+export interface SectorDetail {
+  sectorId: number;
+  sectorName: string;
+  description: string;
+  metric: SectorOverview;
+  industries: IndustryDetail[];
+}
+
+export interface IndustryDetail {
+  industryId: number;
+  industryName: string;
+  avgPer: number;
+  avgPbr: number;
+  totalMarketCap: number;
+  stockCount: number;
+  performances: Record<string, number>;
+}
+
+export async function screenStocks(filter: ScreeningFilter, page = 0, size = 20, sort = 'marketCap,desc'): Promise<{ data: ScreeningResult[]; meta: any }> {
+  const params: any = { page, size, sort };
+  if (filter.sectorId) params.sector = filter.sectorId;
+  if (filter.minPer !== undefined) params.minPer = filter.minPer;
+  if (filter.maxPer !== undefined) params.maxPer = filter.maxPer;
+  if (filter.minPbr !== undefined) params.minPbr = filter.minPbr;
+  if (filter.maxPbr !== undefined) params.maxPbr = filter.maxPbr;
+  if (filter.minCap !== undefined) params.minCap = filter.minCap;
+  if (filter.maxCap !== undefined) params.maxCap = filter.maxCap;
+  if (filter.minDividendYield !== undefined) params.minDividendYield = filter.minDividendYield;
+  if (filter.minRoe !== undefined) params.minRoe = filter.minRoe;
+  if (filter.maxDebtRatio !== undefined) params.maxDebtRatio = filter.maxDebtRatio;
+  if (filter.minRevenueGrowth !== undefined) params.minRevenueGrowth = filter.minRevenueGrowth;
+  if (filter.minOperatingMargin !== undefined) params.minOperatingMargin = filter.minOperatingMargin;
+  if (filter.exchange) params.exchange = filter.exchange;
+  const res = await api.get<ApiResponse<ScreeningResult[]>>('/screening', { params });
+  return { data: res.data.data, meta: res.data.meta };
+}
+
+export async function getFinancials(ticker: string, type = 'annual'): Promise<FinancialData[]> {
+  const res = await api.get<ApiResponse<FinancialData[]>>(`/stocks/${ticker}/financials`, { params: { type } });
+  return res.data.data;
+}
+
+export async function getFinancialRatios(ticker: string): Promise<FinancialRatios> {
+  const res = await api.get<ApiResponse<FinancialRatios>>(`/stocks/${ticker}/financials/ratios`);
+  return res.data.data;
+}
+
+export async function getSectors(): Promise<SectorOverview[]> {
+  const res = await api.get<ApiResponse<SectorOverview[]>>('/sectors');
+  return res.data.data;
+}
+
+export async function getSectorDetail(id: number): Promise<SectorDetail> {
+  const res = await api.get<ApiResponse<SectorDetail>>(`/sectors/${id}`);
+  return res.data.data;
+}
+
+export async function getIndustryDetail(id: number): Promise<IndustryDetail> {
+  const res = await api.get<ApiResponse<IndustryDetail>>(`/industries/${id}`);
+  return res.data.data;
+}
