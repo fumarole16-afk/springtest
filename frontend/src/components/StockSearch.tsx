@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { searchStocks, StockSearchResult } from '../api/stockApi';
+import { searchStocks } from '../api/stockApi';
+import type { StockSearchResult } from '../api/stockApi';
 
 export default function StockSearch() {
   const [query, setQuery] = useState('');
