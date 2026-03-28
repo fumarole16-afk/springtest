@@ -231,8 +231,8 @@ export async function getDashboardMovers(): Promise<{gainers: MoverStock[], lose
 }
 
 export async function getDashboardExtremes(): Promise<{highs: MoverStock[], lows: MoverStock[]}> {
-  const res = await api.get<ApiResponse<{highs: MoverStock[], lows: MoverStock[]}>>('/dashboard/extremes');
-  return res.data.data;
+  const res = await api.get<ApiResponse<{nearHigh: MoverStock[], nearLow: MoverStock[]}>>('/dashboard/extremes');
+  return { highs: res.data.data.nearHigh, lows: res.data.data.nearLow };
 }
 
 export async function getDashboardVolumeSpikes(): Promise<MoverStock[]> {
