@@ -20,7 +20,6 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -28,76 +27,31 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @Component
 public class YahooFinanceClient {
 
     private static final Logger log = LoggerFactory.getLogger(YahooFinanceClient.class);
     private static final ObjectMapper mapper = new ObjectMapper();
-    private static final String USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
-    @Value("${yahoo.finance.base-url:https://query2.finance.yahoo.com}")
+    @Value("${yahoo.finance.base-url:https://query1.finance.yahoo.com}")
     private String baseUrl;
 
     private final RestTemplate restTemplate = new RestTemplate();
-    private String crumb;
-    private String cookie;
-
-    private synchronized void initCrumb() {
-        if (crumb != null && cookie != null) return;
-        try {
-            // Step 1: Visit Yahoo Finance page to get cookies
-            HttpHeaders h1 = new HttpHeaders();
-            h1.set("User-Agent", USER_AGENT);
-            h1.set("Accept", "text/html,application/xhtml+xml");
-            ResponseEntity<String> pageResp = restTemplate.exchange(
-                    "https://finance.yahoo.com/quote/AAPL/", HttpMethod.GET, new HttpEntity<>(h1), String.class);
-            List<String> cookies = pageResp.getHeaders().get("Set-Cookie");
-            StringBuilder cookieStr = new StringBuilder();
-            if (cookies != null) {
-                for (String c : cookies) {
-                    if (cookieStr.length() > 0) cookieStr.append("; ");
-                    cookieStr.append(c.split(";")[0]);
-                }
-            }
-            cookie = cookieStr.toString();
-
-            // Step 2: Get crumb with cookies
-            HttpHeaders h2 = new HttpHeaders();
-            h2.set("User-Agent", USER_AGENT);
-            h2.set("Cookie", cookie);
-            ResponseEntity<String> crumbResp = restTemplate.exchange(
-                    "https://query2.finance.yahoo.com/v1/test/getcrumb", HttpMethod.GET, new HttpEntity<>(h2), String.class);
-            crumb = crumbResp.getBody();
-            log.info("Yahoo Finance crumb obtained successfully");
-        } catch (Exception e) {
-            log.warn("Failed to obtain crumb: {}. Falling back to query2 without crumb.", e.getMessage());
-            crumb = "";
-            cookie = "";
-        }
-    }
 
     private String fetchWithHeaders(String url) {
-        initCrumb();
-        if (crumb != null && !crumb.isEmpty()) {
-            url += (url.contains("?") ? "&" : "?") + "crumb=" + crumb;
-        }
         HttpHeaders headers = new HttpHeaders();
-        headers.set("User-Agent", USER_AGENT);
-        headers.set("Accept", "application/json");
-        if (cookie != null && !cookie.isEmpty()) {
-            headers.set("Cookie", cookie);
-        }
+        headers.set("User-Agent", "Mozilla/5.0");
+        headers.set("Accept", "*/*");
         HttpEntity<String> entity = new HttpEntity<>(headers);
         return restTemplate.exchange(url, HttpMethod.GET, entity, String.class).getBody();
     }
 
     public StockDetail fetchQuote(String ticker) {
-        String url = baseUrl + "/v7/finance/quote?symbols=" + ticker;
+        // Use v8 chart API which doesn't require authentication
+        String url = baseUrl + "/v8/finance/chart/" + ticker + "?range=1d&interval=1d";
         String json = fetchWithHeaders(url);
-        return parseQuoteResponse(json);
+        return parseQuoteFromChart(json);
     }
 
     public JsonNode fetchFinancials(String ticker) {
@@ -116,6 +70,23 @@ public class YahooFinanceClient {
                 "?range=" + range + "&interval=" + interval;
         String json = fetchWithHeaders(url);
         return parseChartResponse(json);
+    }
+
+    static StockDetail parseQuoteFromChart(String json) {
+        try {
+            JsonNode root = readTreeExact(json);
+            JsonNode meta = root.path("chart").path("result").get(0).path("meta");
+            StockDetail detail = new StockDetail();
+            detail.setTicker(meta.path("symbol").asText());
+            detail.setCompanyName(meta.has("longName") ? meta.path("longName").asText() :
+                    meta.has("shortName") ? meta.path("shortName").asText() : meta.path("symbol").asText());
+            detail.setExchange(meta.path("fullExchangeName").asText());
+            detail.setCurrentPrice(nodeToDecimal(meta.path("regularMarketPrice")));
+            detail.setMarketCap(BigDecimal.ZERO);
+            return detail;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse chart response for quote", e);
+        }
     }
 
     public IndexQuote fetchIndexQuote(String symbol, String displayName) {
