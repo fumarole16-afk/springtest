@@ -6,7 +6,9 @@ import com.stockanalyzer.dto.FinancialRatios;
 import com.stockanalyzer.dto.PriceData;
 import com.stockanalyzer.dto.StockDetail;
 import com.stockanalyzer.dto.StockSearchResult;
+import com.stockanalyzer.entity.News;
 import com.stockanalyzer.service.FinancialService;
+import com.stockanalyzer.service.NewsService;
 import com.stockanalyzer.service.StockService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -18,11 +20,14 @@ import java.util.List;
 public class StockController {
     private final StockService stockService;
     private final FinancialService financialService;
+    private final NewsService newsService;
 
     @Autowired
-    public StockController(StockService stockService, FinancialService financialService) {
+    public StockController(StockService stockService, FinancialService financialService,
+                           NewsService newsService) {
         this.stockService = stockService;
         this.financialService = financialService;
+        this.newsService = newsService;
     }
 
     @GetMapping
@@ -56,5 +61,13 @@ public class StockController {
     @GetMapping("/{ticker}/financials/ratios")
     public ApiResponse<FinancialRatios> getRatios(@PathVariable String ticker) {
         return ApiResponse.ok(financialService.getRatios(ticker));
+    }
+
+    @GetMapping("/{ticker}/news")
+    public ApiResponse<List<News>> getNews(
+            @PathVariable String ticker,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size) {
+        return ApiResponse.ok(newsService.getNewsByTicker(ticker, page, size));
     }
 }

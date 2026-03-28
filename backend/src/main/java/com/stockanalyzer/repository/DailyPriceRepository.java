@@ -8,6 +8,7 @@ import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 @Transactional(readOnly = true)
@@ -33,6 +34,30 @@ public class DailyPriceRepository {
                 .setMaxResults(1)
                 .getResultList();
         return results.isEmpty() ? null : results.get(0);
+    }
+
+    public List<DailyPrice> findLatestTwoByStock(Long stockId) {
+        return em.createQuery(
+                "SELECT dp FROM DailyPrice dp WHERE dp.stock.id = :stockId " +
+                "ORDER BY dp.date DESC", DailyPrice.class)
+                .setParameter("stockId", stockId)
+                .setMaxResults(2)
+                .getResultList();
+    }
+
+    public LocalDate getLatestDate() {
+        List<LocalDate> results = em.createQuery(
+                "SELECT MAX(dp.date) FROM DailyPrice dp", LocalDate.class)
+                .getResultList();
+        return results.isEmpty() || results.get(0) == null ? LocalDate.now() : results.get(0);
+    }
+
+    public List<DailyPrice> findByDate(LocalDate date) {
+        return em.createQuery(
+                "SELECT dp FROM DailyPrice dp JOIN FETCH dp.stock " +
+                "WHERE dp.date = :date", DailyPrice.class)
+                .setParameter("date", date)
+                .getResultList();
     }
 
     @Transactional

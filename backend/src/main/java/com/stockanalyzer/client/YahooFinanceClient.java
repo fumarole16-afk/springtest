@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.DecimalNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.stockanalyzer.dto.IndexQuote;
 import com.stockanalyzer.dto.PriceData;
 import com.stockanalyzer.dto.StockDetail;
 import org.slf4j.Logger;
@@ -56,6 +57,26 @@ public class YahooFinanceClient {
                 "?range=" + range + "&interval=" + interval;
         String json = restTemplate.getForObject(url, String.class);
         return parseChartResponse(json);
+    }
+
+    public IndexQuote fetchIndexQuote(String symbol, String displayName) {
+        String url = baseUrl + "/v7/finance/quote?symbols=" + symbol;
+        String json = restTemplate.getForObject(url, String.class);
+        return parseIndexQuoteResponse(json, symbol, displayName);
+    }
+
+    static IndexQuote parseIndexQuoteResponse(String json, String symbol, String displayName) {
+        try {
+            JsonNode root = readTreeExact(json);
+            JsonNode result = root.path("quoteResponse").path("result").get(0);
+            BigDecimal price = nodeToDecimal(result.path("regularMarketPrice"));
+            BigDecimal change = nodeToDecimal(result.path("regularMarketChange"));
+            BigDecimal changePct = nodeToDecimal(result.path("regularMarketChangePercent"));
+            return new IndexQuote(symbol, displayName, price, change, changePct);
+        } catch (Exception e) {
+            log.warn("Failed to fetch index quote for {}: {}", symbol, e.getMessage());
+            return new IndexQuote(symbol, displayName, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
+        }
     }
 
     static StockDetail parseQuoteResponse(String json) {
