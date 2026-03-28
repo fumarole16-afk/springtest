@@ -40,6 +40,17 @@ public class YahooFinanceClient {
         return parseQuoteResponse(json);
     }
 
+    public JsonNode fetchFinancials(String ticker) {
+        String url = baseUrl + "/v10/finance/quoteSummary/" + ticker +
+                "?modules=incomeStatementHistory,balanceSheetHistory,cashflowStatementHistory";
+        String json = restTemplate.getForObject(url, String.class);
+        try {
+            return readTreeExact(json);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to fetch financials for " + ticker, e);
+        }
+    }
+
     public List<PriceData> fetchPriceHistory(String ticker, String range, String interval) {
         String url = baseUrl + "/v8/finance/chart/" + ticker +
                 "?range=" + range + "&interval=" + interval;

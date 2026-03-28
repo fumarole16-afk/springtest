@@ -22,6 +22,10 @@ public class StockRepository {
         return results.isEmpty() ? null : results.get(0);
     }
 
+    public List<Stock> findAll() {
+        return em.createQuery("SELECT s FROM Stock s ORDER BY s.ticker", Stock.class).getResultList();
+    }
+
     public List<Stock> search(String keyword, int limit) {
         String pattern = keyword.toUpperCase() + "%";
         return em.createQuery(
