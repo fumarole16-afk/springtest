@@ -11,7 +11,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      DB_URL: jdbc:postgresql://172.17.0.1:5433/axidiary?sslmode=disable
+      DB_URL: jdbc:postgresql://172.17.0.1:5433/stockanalyzer?sslmode=disable
       DB_USERNAME: tiger
       DB_PASSWORD: Freewalk345^
     deploy:

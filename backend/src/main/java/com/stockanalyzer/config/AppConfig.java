@@ -22,7 +22,10 @@ import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.core.io.ClassPathResource;
 
 @Configuration
-@ComponentScan(basePackages = "com.stockanalyzer")
+@ComponentScan(basePackages = "com.stockanalyzer",
+    excludeFilters = @ComponentScan.Filter(
+        type = org.springframework.context.annotation.FilterType.REGEX,
+        pattern = "com\\.stockanalyzer\\.controller\\..*"))
 @PropertySource("classpath:application.properties")
 @EnableTransactionManagement
 @EnableScheduling

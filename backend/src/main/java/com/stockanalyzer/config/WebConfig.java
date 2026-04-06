@@ -20,7 +20,7 @@ public class WebConfig extends WebMvcConfigurerAdapter {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
-                .allowedOrigins("http://localhost:5173", "https://*.vercel.app", "http://fumarole.synology.me:39091")
+                .allowedOrigins("http://localhost:5173", "http://fumarole.synology.me:39091", "*")
                 .allowedMethods("GET", "POST")
                 .maxAge(3600);
     }
