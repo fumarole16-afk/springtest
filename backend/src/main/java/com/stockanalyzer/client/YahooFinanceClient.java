@@ -54,6 +54,28 @@ public class YahooFinanceClient {
         return parseQuoteFromChart(json);
     }
 
+    public List<StockDetail> searchTickers(String query) {
+        String url = "https://query1.finance.yahoo.com/v1/finance/search?q=" + query + "&quotesCount=10&newsCount=0";
+        try {
+            String json = fetchWithHeaders(url);
+            JsonNode root = readTreeExact(json);
+            JsonNode quotes = root.path("quotes");
+            List<StockDetail> results = new ArrayList<>();
+            for (JsonNode q : quotes) {
+                if (!"EQUITY".equals(q.path("quoteType").asText())) continue;
+                StockDetail d = new StockDetail();
+                d.setTicker(q.path("symbol").asText());
+                d.setCompanyName(q.has("longname") ? q.path("longname").asText() : q.path("shortname").asText());
+                d.setExchange(q.path("exchDisp").asText());
+                results.add(d);
+            }
+            return results;
+        } catch (Exception e) {
+            log.warn("Yahoo search failed for '{}': {}", query, e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
     public JsonNode fetchFinancials(String ticker) {
         String url = baseUrl + "/v10/finance/quoteSummary/" + ticker +
                 "?modules=incomeStatementHistory,balanceSheetHistory,cashflowStatementHistory";

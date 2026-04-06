@@ -31,8 +31,14 @@ public class StockService {
     }
 
     public List<StockSearchResult> search(String keyword) {
-        return stockRepository.search(keyword, 10).stream()
+        List<StockSearchResult> dbResults = stockRepository.search(keyword, 10).stream()
                 .map(s -> new StockSearchResult(s.getTicker(), s.getCompanyName(), s.getExchange()))
+                .collect(Collectors.toList());
+        if (!dbResults.isEmpty()) {
+            return dbResults;
+        }
+        return yahooClient.searchTickers(keyword).stream()
+                .map(d -> new StockSearchResult(d.getTicker(), d.getCompanyName(), d.getExchange()))
                 .collect(Collectors.toList());
     }
 
