@@ -232,6 +232,44 @@ public class SecEdgarClient {
         return null;
     }
 
+    public static BigDecimal parseSharesOutstanding(String json) {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode root = mapper.readTree(json);
+            // Primary: dei:EntityCommonStockSharesOutstanding
+            JsonNode entries = root.path("facts").path("dei")
+                .path("EntityCommonStockSharesOutstanding").path("units").path("shares");
+            if (!entries.isMissingNode() && entries.size() > 0) {
+                JsonNode latest = null;
+                for (JsonNode entry : entries) {
+                    if ("10-K".equals(entry.path("form").asText())) {
+                        latest = entry;
+                    }
+                }
+                if (latest != null) {
+                    return new BigDecimal(String.valueOf(latest.path("val").asLong()));
+                }
+            }
+            // Fallback: us-gaap:CommonStockSharesOutstanding
+            entries = root.path("facts").path("us-gaap")
+                .path("CommonStockSharesOutstanding").path("units").path("shares");
+            if (!entries.isMissingNode() && entries.size() > 0) {
+                JsonNode latest = null;
+                for (JsonNode entry : entries) {
+                    if ("10-K".equals(entry.path("form").asText())) {
+                        latest = entry;
+                    }
+                }
+                if (latest != null) {
+                    return new BigDecimal(String.valueOf(latest.path("val").asLong()));
+                }
+            }
+            return null;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse shares outstanding", e);
+        }
+    }
+
     private static String getAnnualEndDate(JsonNode usGaap, int fiscalYear) {
         Iterator<Map.Entry<String, JsonNode>> fields = usGaap.fields();
         while (fields.hasNext()) {

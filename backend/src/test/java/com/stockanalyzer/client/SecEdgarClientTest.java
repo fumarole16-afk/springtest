@@ -61,4 +61,18 @@ public class SecEdgarClientTest {
         assertEquals(new BigDecimal("73733000000"), latest.totalEquity);
         assertEquals(new BigDecimal("111482000000"), latest.operatingCashFlow);
     }
+
+    @Test
+    public void parseSharesOutstanding_extractsFromXbrl() {
+        String json = "{ \"cik\": 320193, \"entityName\": \"Apple\", \"facts\": {" +
+            "\"dei\": {" +
+            "  \"EntityCommonStockSharesOutstanding\": { \"units\": { \"shares\": [" +
+            "    {\"val\": 15115823000, \"fy\": 2024, \"form\": \"10-K\", \"end\": \"2024-10-18\"}," +
+            "    {\"val\": 14776353000, \"fy\": 2025, \"form\": \"10-K\", \"end\": \"2025-10-17\"}" +
+            "  ]}}" +
+            "}, \"us-gaap\": {} }}";
+
+        BigDecimal shares = SecEdgarClient.parseSharesOutstanding(json);
+        assertEquals(new BigDecimal("14776353000"), shares);
+    }
 }
