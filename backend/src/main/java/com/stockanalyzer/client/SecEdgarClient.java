@@ -18,10 +18,9 @@ import org.w3c.dom.NodeList;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.ByteArrayInputStream;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
@@ -30,6 +29,17 @@ public class SecEdgarClient {
     private static final String EDGAR_URL =
             "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&type=&dateb=&owner=include&count={count}&search_text=&CIK={ticker}&output=atom";
     private static final String TICKER_MAP_URL = "https://www.sec.gov/files/company_tickers.json";
+    private static final String XBRL_URL = "https://data.sec.gov/api/xbrl/companyfacts/CIK%s.json";
+    private static final String[] REVENUE_CONCEPTS = {
+        "RevenueFromContractWithCustomerExcludingAssessedTax",
+        "Revenues",
+        "SalesRevenueNet",
+        "RevenueFromContractWithCustomerIncludingAssessedTax"
+    };
+    private static final String[] CASH_OP_CONCEPTS = {
+        "NetCashProvidedByUsedInOperatingActivities",
+        "NetCashProvidedByOperatingActivities"
+    };
 
     @Value("${sec.edgar.user-agent:stockanalyzer/1.0 contact@example.com}")
     private String userAgent;
@@ -123,5 +133,119 @@ public class SecEdgarClient {
     public String resolveCik(String ticker) {
         initTickerMapIfEmpty();
         return tickerToCik.get(ticker.toUpperCase());
+    }
+
+    public static class EdgarFinancial {
+        public int fiscalYear;
+        public String endDate;
+        public BigDecimal revenue;
+        public BigDecimal netIncome;
+        public BigDecimal operatingIncome;
+        public BigDecimal totalAssets;
+        public BigDecimal totalLiabilities;
+        public BigDecimal totalEquity;
+        public BigDecimal operatingCashFlow;
+    }
+
+    public String fetchCompanyFacts(String ticker) {
+        String cik = resolveCik(ticker);
+        if (cik == null) {
+            log.warn("No CIK found for ticker: {}", ticker);
+            return null;
+        }
+        try {
+            String url = String.format(XBRL_URL, cik);
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("User-Agent", userAgent);
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+            return restTemplate.exchange(url, HttpMethod.GET, entity, String.class).getBody();
+        } catch (Exception e) {
+            log.error("Failed to fetch XBRL facts for {}: {}", ticker, e.getMessage());
+            return null;
+        }
+    }
+
+    public static List<EdgarFinancial> parseFinancialFacts(String json) {
+        List<EdgarFinancial> results = new ArrayList<>();
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode root = mapper.readTree(json);
+            JsonNode usGaap = root.path("facts").path("us-gaap");
+            if (usGaap.isMissingNode()) return results;
+
+            Set<Integer> fiscalYears = collectFiscalYears(usGaap);
+
+            for (int fy : fiscalYears) {
+                EdgarFinancial fin = new EdgarFinancial();
+                fin.fiscalYear = fy;
+
+                fin.revenue = getAnnualValue(usGaap, REVENUE_CONCEPTS, fy);
+                fin.netIncome = getAnnualValue(usGaap, new String[]{"NetIncomeLoss"}, fy);
+                fin.operatingIncome = getAnnualValue(usGaap, new String[]{"OperatingIncomeLoss"}, fy);
+                fin.totalAssets = getAnnualValue(usGaap, new String[]{"Assets"}, fy);
+                fin.totalLiabilities = getAnnualValue(usGaap, new String[]{"Liabilities"}, fy);
+                fin.totalEquity = getAnnualValue(usGaap, new String[]{"StockholdersEquity"}, fy);
+                fin.operatingCashFlow = getAnnualValue(usGaap, CASH_OP_CONCEPTS, fy);
+                fin.endDate = getAnnualEndDate(usGaap, fy);
+
+                if (fin.revenue != null || fin.netIncome != null) {
+                    results.add(fin);
+                }
+            }
+
+            results.sort((a, b) -> Integer.compare(b.fiscalYear, a.fiscalYear));
+        } catch (Exception e) {
+            log.error("Failed to parse XBRL financial facts: {}", e.getMessage());
+        }
+        return results;
+    }
+
+    private static Set<Integer> collectFiscalYears(JsonNode usGaap) {
+        Set<Integer> years = new TreeSet<>();
+        Iterator<Map.Entry<String, JsonNode>> fields = usGaap.fields();
+        while (fields.hasNext()) {
+            Map.Entry<String, JsonNode> field = fields.next();
+            JsonNode usdArray = field.getValue().path("units").path("USD");
+            if (usdArray.isArray()) {
+                for (JsonNode entry : usdArray) {
+                    if ("10-K".equals(entry.path("form").asText())) {
+                        years.add(entry.path("fy").asInt());
+                    }
+                }
+            }
+        }
+        return years;
+    }
+
+    private static BigDecimal getAnnualValue(JsonNode usGaap, String[] concepts, int fiscalYear) {
+        for (String concept : concepts) {
+            JsonNode usdArray = usGaap.path(concept).path("units").path("USD");
+            if (usdArray.isArray()) {
+                for (JsonNode entry : usdArray) {
+                    if ("10-K".equals(entry.path("form").asText()) && entry.path("fy").asInt() == fiscalYear) {
+                        long val = entry.path("val").asLong();
+                        return new BigDecimal(String.valueOf(val));
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private static String getAnnualEndDate(JsonNode usGaap, int fiscalYear) {
+        Iterator<Map.Entry<String, JsonNode>> fields = usGaap.fields();
+        while (fields.hasNext()) {
+            Map.Entry<String, JsonNode> field = fields.next();
+            JsonNode usdArray = field.getValue().path("units").path("USD");
+            if (usdArray.isArray()) {
+                for (JsonNode entry : usdArray) {
+                    if ("10-K".equals(entry.path("form").asText()) && entry.path("fy").asInt() == fiscalYear) {
+                        String end = entry.path("end").asText();
+                        if (end != null && !end.isEmpty()) return end;
+                    }
+                }
+            }
+        }
+        return null;
     }
 }
