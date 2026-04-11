@@ -1,7 +1,6 @@
 package com.stockanalyzer.scheduler;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.stockanalyzer.client.YahooFinanceClient;
+import com.stockanalyzer.client.SecEdgarClient;
 import com.stockanalyzer.entity.Financial;
 import com.stockanalyzer.entity.Stock;
 import com.stockanalyzer.repository.FinancialRepository;
@@ -13,22 +12,21 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 @Component
 public class FinancialCollector {
     private static final Logger log = LoggerFactory.getLogger(FinancialCollector.class);
 
-    private final YahooFinanceClient yahooClient;
+    private final SecEdgarClient secEdgarClient;
     private final StockRepository stockRepository;
     private final FinancialRepository financialRepository;
 
     @Autowired
-    public FinancialCollector(YahooFinanceClient yahooClient,
+    public FinancialCollector(SecEdgarClient secEdgarClient,
                               StockRepository stockRepository,
                               FinancialRepository financialRepository) {
-        this.yahooClient = yahooClient;
+        this.secEdgarClient = secEdgarClient;
         this.stockRepository = stockRepository;
         this.financialRepository = financialRepository;
     }
@@ -36,11 +34,11 @@ public class FinancialCollector {
     @Scheduled(cron = "0 0 7 ? * SUN")
     public void collectFinancials() {
         List<Stock> stocks = stockRepository.findAll();
-        log.info("Starting financial collection for {} stocks", stocks.size());
+        log.info("Starting financial collection via SEC EDGAR for {} stocks", stocks.size());
         for (Stock stock : stocks) {
             try {
                 collectForStock(stock);
-                Thread.sleep(1200);
+                Thread.sleep(200); // SEC EDGAR rate limit: 10 req/sec
             } catch (Exception e) {
                 log.error("Failed to collect financials for {}: {}", stock.getTicker(), e.getMessage());
             }
@@ -50,64 +48,32 @@ public class FinancialCollector {
 
     @Transactional
     public void collectForStock(Stock stock) {
-        JsonNode root = yahooClient.fetchFinancials(stock.getTicker());
-        JsonNode result = root.path("quoteSummary").path("result").get(0);
-        if (result == null || result.isMissingNode()) {
-            log.warn("No financial data for {}", stock.getTicker());
+        String json = secEdgarClient.fetchCompanyFacts(stock.getTicker());
+        if (json == null) {
+            log.warn("No SEC EDGAR data for {}", stock.getTicker());
             return;
         }
 
-        parseAndSaveIncomeStatements(stock, result);
-    }
-
-    private void parseAndSaveIncomeStatements(Stock stock, JsonNode result) {
-        JsonNode statements = result.path("incomeStatementHistory").path("incomeStatementHistory");
-        JsonNode balanceSheets = result.path("balanceSheetHistory").path("balanceSheetStatements");
-        JsonNode cashflows = result.path("cashflowStatementHistory").path("cashflowStatements");
-
-        for (int i = 0; i < statements.size(); i++) {
-            JsonNode income = statements.get(i);
-            JsonNode balance = balanceSheets.size() > i ? balanceSheets.get(i) : null;
-            JsonNode cashflow = cashflows.size() > i ? cashflows.get(i) : null;
-
-            String endDate = income.path("endDate").path("fmt").asText();
-            if (endDate == null || endDate.isEmpty()) continue;
-
-            // Period format: "2023" for annual
-            String period = endDate.length() >= 4 ? endDate.substring(0, 4) : endDate;
-
+        List<SecEdgarClient.EdgarFinancial> facts = SecEdgarClient.parseFinancialFacts(json);
+        for (SecEdgarClient.EdgarFinancial ef : facts) {
             Financial financial = new Financial();
             financial.setStock(stock);
-            financial.setPeriod(period);
+            financial.setPeriod(String.valueOf(ef.fiscalYear));
             financial.setType("annual");
-            financial.setRevenue(rawValue(income.path("totalRevenue")));
-            financial.setOperatingIncome(rawValue(income.path("operatingIncome")));
-            financial.setNetIncome(rawValue(income.path("netIncome")));
-
-            if (balance != null) {
-                financial.setTotalAssets(rawValue(balance.path("totalAssets")));
-                financial.setTotalLiabilities(rawValue(balance.path("totalLiab")));
-                financial.setTotalEquity(rawValue(balance.path("totalStockholderEquity")));
-            }
-
-            if (cashflow != null) {
-                financial.setOperatingCashFlow(rawValue(cashflow.path("totalCashFromOperatingActivities")));
-            }
+            financial.setRevenue(ef.revenue);
+            financial.setOperatingIncome(ef.operatingIncome);
+            financial.setNetIncome(ef.netIncome);
+            financial.setTotalAssets(ef.totalAssets);
+            financial.setTotalLiabilities(ef.totalLiabilities);
+            financial.setTotalEquity(ef.totalEquity);
+            financial.setOperatingCashFlow(ef.operatingCashFlow);
 
             try {
                 financialRepository.save(financial);
             } catch (Exception e) {
-                log.debug("Skipping duplicate financial record for {} period {}: {}", stock.getTicker(), period, e.getMessage());
+                log.debug("Skipping duplicate financial for {} period {}: {}",
+                    stock.getTicker(), ef.fiscalYear, e.getMessage());
             }
         }
-    }
-
-    private BigDecimal rawValue(JsonNode node) {
-        if (node == null || node.isMissingNode() || node.isNull()) return null;
-        JsonNode raw = node.path("raw");
-        if (!raw.isMissingNode() && !raw.isNull()) {
-            return new BigDecimal(raw.asText());
-        }
-        return null;
     }
 }
