@@ -3,6 +3,7 @@ package com.stockanalyzer.controller;
 import com.stockanalyzer.common.ApiResponse;
 import com.stockanalyzer.scheduler.FinancialCollector;
 import com.stockanalyzer.scheduler.MetricsCalculator;
+import com.stockanalyzer.scheduler.NewsCollector;
 import com.stockanalyzer.scheduler.PriceCollector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +25,7 @@ public class AdminController {
     private final PriceCollector priceCollector;
     private final FinancialCollector financialCollector;
     private final MetricsCalculator metricsCalculator;
+    private final NewsCollector newsCollector;
     private final DataSource dataSource;
 
     @PersistenceContext
@@ -33,10 +35,12 @@ public class AdminController {
     public AdminController(PriceCollector priceCollector,
                            FinancialCollector financialCollector,
                            MetricsCalculator metricsCalculator,
+                           NewsCollector newsCollector,
                            DataSource dataSource) {
         this.priceCollector = priceCollector;
         this.financialCollector = financialCollector;
         this.metricsCalculator = metricsCalculator;
+        this.newsCollector = newsCollector;
         this.dataSource = dataSource;
     }
 
@@ -89,5 +93,53 @@ public class AdminController {
             }
         }).start();
         return ApiResponse.ok("Collection started in background");
+    }
+
+    @GetMapping("/collect-prices")
+    public ApiResponse<String> collectPrices() {
+        new Thread(() -> {
+            try {
+                priceCollector.collectDailyPrices();
+            } catch (Exception e) {
+                log.error("Manual price collection failed: {}", e.getMessage(), e);
+            }
+        }).start();
+        return ApiResponse.ok("Price collection started");
+    }
+
+    @GetMapping("/collect-financials")
+    public ApiResponse<String> collectFinancials() {
+        new Thread(() -> {
+            try {
+                financialCollector.collectFinancials();
+            } catch (Exception e) {
+                log.error("Manual financial collection failed: {}", e.getMessage(), e);
+            }
+        }).start();
+        return ApiResponse.ok("Financial collection started");
+    }
+
+    @GetMapping("/calculate-metrics")
+    public ApiResponse<String> calculateMetrics() {
+        new Thread(() -> {
+            try {
+                metricsCalculator.run();
+            } catch (Exception e) {
+                log.error("Manual metrics calculation failed: {}", e.getMessage(), e);
+            }
+        }).start();
+        return ApiResponse.ok("Metrics calculation started");
+    }
+
+    @GetMapping("/collect-news")
+    public ApiResponse<String> collectNews() {
+        new Thread(() -> {
+            try {
+                newsCollector.collectNews();
+            } catch (Exception e) {
+                log.error("Manual news collection failed: {}", e.getMessage(), e);
+            }
+        }).start();
+        return ApiResponse.ok("News collection started");
     }
 }
