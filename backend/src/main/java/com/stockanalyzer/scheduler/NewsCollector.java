@@ -1,6 +1,5 @@
 package com.stockanalyzer.scheduler;
 
-import com.stockanalyzer.client.FinnhubClient;
 import com.stockanalyzer.client.SecEdgarClient;
 import com.stockanalyzer.dto.NewsItem;
 import com.stockanalyzer.entity.News;
@@ -15,64 +14,39 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Component
 public class NewsCollector {
     private static final Logger log = LoggerFactory.getLogger(NewsCollector.class);
-    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     private final StockRepository stockRepository;
     private final NewsRepository newsRepository;
-    private final FinnhubClient finnhubClient;
     private final SecEdgarClient secEdgarClient;
 
     @Autowired
     public NewsCollector(StockRepository stockRepository, NewsRepository newsRepository,
-                         FinnhubClient finnhubClient, SecEdgarClient secEdgarClient) {
+                         SecEdgarClient secEdgarClient) {
         this.stockRepository = stockRepository;
         this.newsRepository = newsRepository;
-        this.finnhubClient = finnhubClient;
         this.secEdgarClient = secEdgarClient;
     }
 
     @Scheduled(cron = "0 0 */6 * * *")
     public void collectNews() {
         List<Stock> stocks = stockRepository.findAll();
-        log.info("Starting news collection for {} stocks", stocks.size());
-        String toDate = LocalDate.now().format(DATE_FMT);
-        String fromDate = LocalDate.now().minusDays(7).format(DATE_FMT);
+        log.info("Starting news collection (SEC EDGAR filings) for {} stocks", stocks.size());
 
         for (Stock stock : stocks) {
             try {
-                collectFinnhubNews(stock, fromDate, toDate);
                 collectEdgarFilings(stock);
-                Thread.sleep(1200);
+                Thread.sleep(200);
             } catch (Exception e) {
                 log.error("Failed to collect news for {}: {}", stock.getTicker(), e.getMessage());
             }
         }
         log.info("News collection completed");
-    }
-
-    @Transactional
-    public void collectFinnhubNews(Stock stock, String fromDate, String toDate) {
-        List<NewsItem> items = finnhubClient.fetchCompanyNews(stock.getTicker(), fromDate, toDate);
-        for (NewsItem item : items) {
-            News news = toNewsEntity(item, item.getSource() != null ? item.getSource() : "Finnhub");
-            news = newsRepository.save(news);
-            StockNews sn = new StockNews();
-            sn.setStock(stock);
-            sn.setNews(news);
-            try {
-                newsRepository.saveStockNews(sn);
-            } catch (Exception e) {
-                log.debug("Duplicate stock_news skipped for {} / news {}", stock.getTicker(), news.getId());
-            }
-        }
     }
 
     @Transactional
