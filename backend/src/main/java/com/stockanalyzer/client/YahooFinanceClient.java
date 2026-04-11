@@ -104,7 +104,7 @@ public class YahooFinanceClient {
                     meta.has("shortName") ? meta.path("shortName").asText() : meta.path("symbol").asText());
             detail.setExchange(meta.path("fullExchangeName").asText());
             detail.setCurrentPrice(nodeToDecimal(meta.path("regularMarketPrice")));
-            detail.setMarketCap(BigDecimal.ZERO);
+
             return detail;
         } catch (Exception e) {
             throw new RuntimeException("Failed to parse chart response for quote", e);

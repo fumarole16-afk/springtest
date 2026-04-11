@@ -1,5 +1,6 @@
 package com.stockanalyzer.scheduler;
 
+import com.stockanalyzer.client.SecEdgarClient;
 import com.stockanalyzer.client.YahooFinanceClient;
 import com.stockanalyzer.dto.PriceData;
 import com.stockanalyzer.dto.StockDetail;
@@ -14,6 +15,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -33,14 +35,17 @@ public class PriceCollector {
     private final YahooFinanceClient yahooClient;
     private final StockRepository stockRepository;
     private final DailyPriceRepository dailyPriceRepository;
+    private final SecEdgarClient secEdgarClient;
 
     @Autowired
     public PriceCollector(YahooFinanceClient yahooClient,
                           StockRepository stockRepository,
-                          DailyPriceRepository dailyPriceRepository) {
+                          DailyPriceRepository dailyPriceRepository,
+                          SecEdgarClient secEdgarClient) {
         this.yahooClient = yahooClient;
         this.stockRepository = stockRepository;
         this.dailyPriceRepository = dailyPriceRepository;
+        this.secEdgarClient = secEdgarClient;
     }
 
     @Scheduled(cron = "0 0 7 ? * TUE-SAT")
@@ -66,9 +71,27 @@ public class PriceCollector {
             stock.setTicker(detail.getTicker());
             stock.setCompanyName(detail.getCompanyName());
             stock.setExchange(detail.getExchange());
-            stock.setMarketCap(detail.getMarketCap());
             stock = stockRepository.save(stock);
         }
+
+        // Update marketCap: currentPrice * sharesOutstanding
+        try {
+            StockDetail quote = yahooClient.fetchQuote(ticker);
+            BigDecimal currentPrice = quote.getCurrentPrice();
+            if (currentPrice != null && currentPrice.compareTo(BigDecimal.ZERO) > 0) {
+                String factsJson = secEdgarClient.fetchCompanyFacts(ticker);
+                if (factsJson != null) {
+                    BigDecimal shares = SecEdgarClient.parseSharesOutstanding(factsJson);
+                    if (shares != null) {
+                        stock.setMarketCap(currentPrice.multiply(shares));
+                        stockRepository.save(stock);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to update marketCap for {}: {}", ticker, e.getMessage());
+        }
+
         List<PriceData> prices = yahooClient.fetchPriceHistory(ticker, "1mo", "1d");
         Stock finalStock = stock;
         List<DailyPrice> entities = prices.stream().map(pd -> {
