@@ -7,6 +7,8 @@ frontend/node_modules/
 .idea/
 *.iml
 .vscode/
+.claude/
+.obsidian/
 
 # Environment
 .env
@@ -20,3 +22,16 @@ backend/src/main/resources/application-local.properties
 
 # Gradle
 .gradle/
+
+# Claude Memory Compiler
+claude-memory-compiler/.venv/
+claude-memory-compiler/scripts/state.json
+claude-memory-compiler/scripts/last-flush.json
+claude-memory-compiler/scripts/flush.log
+claude-memory-compiler/scripts/compile.log
+claude-memory-compiler/scripts/session-flush-*
+claude-memory-compiler/scripts/flush-context-*
+claude-memory-compiler/reports/
+
+# Obsidian LLM wiki (프로젝트 메모리)
+springtest_memory/
