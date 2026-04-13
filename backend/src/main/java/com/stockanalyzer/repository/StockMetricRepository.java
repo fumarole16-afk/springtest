@@ -82,6 +82,13 @@ public class StockMetricRepository {
         return em.merge(metric);
     }
 
+    @Transactional
+    public int deleteByDate(LocalDate date) {
+        return em.createQuery("DELETE FROM StockMetric sm WHERE sm.date = :date")
+                .setParameter("date", date)
+                .executeUpdate();
+    }
+
     private List<Predicate> buildPredicates(CriteriaBuilder cb, Root<StockMetric> root, ScreeningFilter filter) {
         List<Predicate> predicates = new ArrayList<>();
 
@@ -91,6 +98,10 @@ public class StockMetricRepository {
         if (filter.getSectorId() != null) {
             predicates.add(cb.equal(
                 root.get("stock").get("industry").get("sector").get("id"), filter.getSectorId()));
+        }
+        if (filter.getIndustryId() != null) {
+            predicates.add(cb.equal(
+                root.get("stock").get("industry").get("id"), filter.getIndustryId()));
         }
         if (filter.getExchange() != null) {
             predicates.add(cb.equal(root.get("stock").get("exchange"), filter.getExchange()));

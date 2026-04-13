@@ -21,6 +21,14 @@ public class IndustryRepository {
     public Industry findById(Long id) {
         return em.find(Industry.class, id);
     }
+    public Industry findByName(String name) {
+        List<Industry> results = em.createQuery(
+                "SELECT i FROM Industry i WHERE i.name = :name ORDER BY i.id ASC", Industry.class)
+                .setParameter("name", name)
+                .setMaxResults(1)
+                .getResultList();
+        return results.isEmpty() ? null : results.get(0);
+    }
     @Transactional
     public Industry save(Industry industry) {
         if (industry.getId() == null) { em.persist(industry); return industry; }

@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 
 public class ScreeningFilter {
     private Long sectorId;
+    private Long industryId;
     private BigDecimal minPer;
     private BigDecimal maxPer;
     private BigDecimal minPbr;
@@ -19,6 +20,8 @@ public class ScreeningFilter {
 
     public Long getSectorId() { return sectorId; }
     public void setSectorId(Long sectorId) { this.sectorId = sectorId; }
+    public Long getIndustryId() { return industryId; }
+    public void setIndustryId(Long industryId) { this.industryId = industryId; }
     public BigDecimal getMinPer() { return minPer; }
     public void setMinPer(BigDecimal minPer) { this.minPer = minPer; }
     public BigDecimal getMaxPer() { return maxPer; }

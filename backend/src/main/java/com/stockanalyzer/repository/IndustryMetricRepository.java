@@ -49,4 +49,11 @@ public class IndustryMetricRepository {
         if (metric.getId() == null) { em.persist(metric); return metric; }
         return em.merge(metric);
     }
+
+    @Transactional
+    public int deleteByDate(LocalDate date) {
+        return em.createQuery("DELETE FROM IndustryMetric im WHERE im.date = :date")
+                .setParameter("date", date)
+                .executeUpdate();
+    }
 }

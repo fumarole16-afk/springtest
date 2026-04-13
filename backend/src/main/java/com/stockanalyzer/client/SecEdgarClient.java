@@ -50,7 +50,10 @@ public class SecEdgarClient {
     public List<NewsItem> fetchFilings(String ticker, int count) {
         String url = EDGAR_URL.replace("{ticker}", ticker).replace("{count}", String.valueOf(count));
         try {
-            String xml = restTemplate.getForObject(url, String.class);
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("User-Agent", userAgent);
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+            String xml = restTemplate.exchange(url, HttpMethod.GET, entity, String.class).getBody();
             return parseAtomFeed(xml, ticker);
         } catch (Exception e) {
             log.error("Failed to fetch SEC EDGAR filings for {}: {}", ticker, e.getMessage());
@@ -236,32 +239,29 @@ public class SecEdgarClient {
         try {
             ObjectMapper mapper = new ObjectMapper();
             JsonNode root = mapper.readTree(json);
-            // Primary: dei:EntityCommonStockSharesOutstanding
-            JsonNode entries = root.path("facts").path("dei")
-                .path("EntityCommonStockSharesOutstanding").path("units").path("shares");
-            if (!entries.isMissingNode() && entries.size() > 0) {
-                JsonNode latest = null;
-                for (JsonNode entry : entries) {
-                    if ("10-K".equals(entry.path("form").asText())) {
-                        latest = entry;
+            // Try concepts in order of accuracy; for each, pick the entry with the
+            // most recent "filed" date regardless of form (10-K, 10-Q, 10-K/A all OK).
+            String[][] concepts = {
+                {"dei", "EntityCommonStockSharesOutstanding"},
+                {"us-gaap", "CommonStockSharesOutstanding"},
+                {"us-gaap", "WeightedAverageNumberOfDilutedSharesOutstanding"},
+                {"us-gaap", "WeightedAverageNumberOfSharesOutstandingBasic"}
+            };
+            for (String[] c : concepts) {
+                JsonNode entries = root.path("facts").path(c[0]).path(c[1]).path("units").path("shares");
+                if (!entries.isMissingNode() && entries.size() > 0) {
+                    JsonNode latest = null;
+                    String latestFiled = "";
+                    for (JsonNode entry : entries) {
+                        String filed = entry.path("filed").asText("");
+                        if (filed.compareTo(latestFiled) > 0) {
+                            latestFiled = filed;
+                            latest = entry;
+                        }
                     }
-                }
-                if (latest != null) {
-                    return new BigDecimal(String.valueOf(latest.path("val").asLong()));
-                }
-            }
-            // Fallback: us-gaap:CommonStockSharesOutstanding
-            entries = root.path("facts").path("us-gaap")
-                .path("CommonStockSharesOutstanding").path("units").path("shares");
-            if (!entries.isMissingNode() && entries.size() > 0) {
-                JsonNode latest = null;
-                for (JsonNode entry : entries) {
-                    if ("10-K".equals(entry.path("form").asText())) {
-                        latest = entry;
+                    if (latest != null) {
+                        return new BigDecimal(String.valueOf(latest.path("val").asLong()));
                     }
-                }
-                if (latest != null) {
-                    return new BigDecimal(String.valueOf(latest.path("val").asLong()));
                 }
             }
             return null;

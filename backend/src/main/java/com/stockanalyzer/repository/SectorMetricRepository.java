@@ -58,4 +58,11 @@ public class SectorMetricRepository {
         if (metric.getId() == null) { em.persist(metric); return metric; }
         return em.merge(metric);
     }
+
+    @Transactional
+    public int deleteByDate(LocalDate date) {
+        return em.createQuery("DELETE FROM SectorMetric sm WHERE sm.date = :date")
+                .setParameter("date", date)
+                .executeUpdate();
+    }
 }

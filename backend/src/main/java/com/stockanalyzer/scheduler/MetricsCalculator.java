@@ -64,6 +64,12 @@ public class MetricsCalculator {
         LocalDate yearAgo = today.minusYears(1);
         LocalDate thirtyDaysAgo = today.minusDays(30);
 
+        // Upsert: clear today's rows first to allow safe re-runs
+        int deleted = stockMetricRepository.deleteByDate(today);
+        if (deleted > 0) {
+            log.info("Cleared {} existing stock_metrics rows for {}", deleted, today);
+        }
+
         for (Stock stock : stocks) {
             try {
                 StockMetric metric = new StockMetric();
@@ -149,6 +155,11 @@ public class MetricsCalculator {
         List<Sector> sectors = sectorRepository.findAll();
         LocalDate today = LocalDate.now();
 
+        int deleted = sectorMetricRepository.deleteByDate(today);
+        if (deleted > 0) {
+            log.info("Cleared {} existing sector_metrics rows for {}", deleted, today);
+        }
+
         for (Sector sector : sectors) {
             try {
                 List<StockMetric> metrics = stockMetricRepository.findByFilters(
@@ -181,6 +192,11 @@ public class MetricsCalculator {
     public void calculateIndustryMetrics() {
         List<Sector> sectors = sectorRepository.findAll();
         LocalDate today = LocalDate.now();
+
+        int deleted = industryMetricRepository.deleteByDate(today);
+        if (deleted > 0) {
+            log.info("Cleared {} existing industry_metrics rows for {}", deleted, today);
+        }
 
         for (Sector sector : sectors) {
             List<Industry> industries = industryRepository.findBySectorId(sector.getId());
@@ -220,10 +236,8 @@ public class MetricsCalculator {
     }
 
     private com.stockanalyzer.dto.ScreeningFilter buildIndustryFilter(Industry industry) {
-        // Filter by sector — industry-level filtering would require a new predicate;
-        // use sector as approximation since IndustryMetric query groups correctly
         com.stockanalyzer.dto.ScreeningFilter f = new com.stockanalyzer.dto.ScreeningFilter();
-        f.setSectorId(industry.getSector().getId());
+        f.setIndustryId(industry.getId());
         return f;
     }
 
