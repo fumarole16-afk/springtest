@@ -76,7 +76,7 @@ export default function SectorAnalysis() {
                 <td className="px-4 py-3 text-right">{s.avgPer?.toFixed(2) ?? '-'}</td>
                 <td className="px-4 py-3 text-right">{s.avgPbr?.toFixed(2) ?? '-'}</td>
                 <td className="px-4 py-3 text-right">{s.totalMarketCap ? formatMarketCap(s.totalMarketCap) : '-'}</td>
-                <td className="px-4 py-3 text-right">{s.avgDividendYield !== undefined ? `${s.avgDividendYield.toFixed(2)}%` : '-'}</td>
+                <td className="px-4 py-3 text-right">{s.avgDividendYield != null ? `${s.avgDividendYield.toFixed(2)}%` : '-'}</td>
               </tr>
             ))}
           </tbody>

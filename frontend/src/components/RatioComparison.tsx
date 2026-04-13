@@ -16,11 +16,11 @@ const RATIO_LABELS: Record<string, string> = {
 
 export default function RatioComparison({ ratios }: Props) {
   const chartData = RATIO_KEYS
-    .filter((k) => ratios.stock[k] !== undefined || ratios.sectorAverage[k] !== undefined)
+    .filter((k) => ratios.stock[k] != null || ratios.sectorAverage[k] != null)
     .map((k) => ({
       name: RATIO_LABELS[k] ?? k,
-      종목: ratios.stock[k] !== undefined ? parseFloat(ratios.stock[k].toFixed(2)) : null,
-      섹터평균: ratios.sectorAverage[k] !== undefined ? parseFloat(ratios.sectorAverage[k].toFixed(2)) : null,
+      종목: ratios.stock[k] != null ? parseFloat(ratios.stock[k].toFixed(2)) : null,
+      섹터평균: ratios.sectorAverage[k] != null ? parseFloat(ratios.sectorAverage[k].toFixed(2)) : null,
     }));
 
   if (chartData.length === 0) return null;

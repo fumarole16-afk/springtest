@@ -54,7 +54,7 @@ export default function SectorDetail() {
           </div>
           <div className="bg-slate-800 rounded-lg p-4">
             <div className="text-xs text-slate-400 mb-1">배당수익률</div>
-            <div className="text-xl font-bold">{m.avgDividendYield !== undefined ? `${m.avgDividendYield.toFixed(2)}%` : '-'}</div>
+            <div className="text-xl font-bold">{m.avgDividendYield != null ? `${m.avgDividendYield.toFixed(2)}%` : '-'}</div>
           </div>
         </div>
       )}
